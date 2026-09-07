@@ -1,6 +1,6 @@
 # Petal 🌸
 
-A cozy snake game set in a pastel garden. Guide your pink snake through berries and rival snakes, grow your score, and enjoy a little encouragement along the way.
+A cozy snake game set in a pastel garden. Guide your pink snake through berries and smaller rival snakes, grow your score, and enjoy a little encouragement along the way.
 
 Built with HTML, CSS, and JavaScript. No package installation or build step required.
 
@@ -9,9 +9,9 @@ Built with HTML, CSS, and JavaScript. No package installation or build step requ
 - **360° steering:** smooth, curved turns with mouse and touch controls, plus keyboard support.
 - **Pastel garden:** blush pink, lavender, and mint colors with flower details.
 - **Random NPC snakes:** rivals spawn with 2–8 segments and wander in curved paths.
-- **Little celebrations:** an NPC hitting your snake’s body triggers cheering bubbles inside the playboard and colorful confetti.
+- **Little celebrations:** catching a smaller snake triggers cheering bubbles inside the playboard and colorful confetti.
 - **Optional sound:** turn on a short musical celebration using the sound button.
-- **High-score board:** shows the top 5 usernames by their highest score. Each username’s personal best is saved locally when browser storage is available, and survives respawning and page reloads.
+- **Personal best:** your highest score is saved locally in your browser when storage is available.
 - **Responsive layout:** play on desktop or mobile, with on-screen direction buttons on smaller screens.
 - **Pause and resume:** take a break anytime; the game also pauses when the tab is hidden or the window loses focus.
 
@@ -19,7 +19,7 @@ Built with HTML, CSS, and JavaScript. No package installation or build step requ
 
 ### Open directly
 
-Open `index.html` in a modern web browser, enter a username (up to 20 characters), then select **Let’s play**. Your name appears below your snake during play.
+Open `index.html` in a modern web browser, then select **Let’s play**.
 
 ### Run a local server
 
@@ -53,13 +53,13 @@ Your snake moves automatically and curves toward the chosen direction. Mouse and
 
 1. Start with the pink snake in the garden.
 2. Collect berries to earn **10 points** and grow by one segment.
-3. Draw an NPC into your snake’s body to earn **50 points**, grow by one segment, and trigger a cheering bubble. Defeated NPCs respawn with random lengths when space is available.
-4. Keep your head clear of your own body and every NPC body. After a collision, you automatically respawn in the center of the garden with **5 segments**, keeping your username but resetting your score and catch count to zero. Your snake appears translucent during **2 seconds of protection**; collisions between you and NPCs are disabled during this time. NPCs also die when their heads hit your body, another NPC’s body, or their own body.
-5. Keep growing and try to beat your personal best.
+3. Touch a smaller NPC snake with your head to earn **50 points**, grow by one segment, and trigger a cheering bubble. A new randomly sized rival spawns after a catch when space is available.
+4. Keep clear of your own body: running into it ends the game.
+5. Select **Play again** to start a fresh run and try to beat your personal best.
 
-Body collisions trigger death regardless of snake length; the player automatically respawns. NPC-to-NPC collisions do not award player points. Crossing a garden edge wraps you around to the opposite side.
+Only NPC snakes **shorter than yours** can be eaten. Equal-sized and longer NPC snakes do not award points or end your run. Crossing a garden edge wraps you around to the opposite side.
 
-High scores are stored in this browser, rather than synced between devices. Enter the same username (including capitalization) to continue using its record. Clearing browser storage resets the leaderboard. If storage is unavailable, records last for the current page session.
+Scores are stored in this browser, rather than synced between devices. Clearing browser storage can reset your personal best.
 
 ## Project files
 
