@@ -8,10 +8,10 @@ function game(){
   const sandbox={document:{getElementById:id=>elements[id]||(elements[id]=element()),createElement:element,querySelectorAll:()=>[],addEventListener(){}},window:{addEventListener(){}},localStorage:{getItem:()=>null,setItem(){}},performance:{now:()=>0},requestAnimationFrame(){},setTimeout(){},clearTimeout(){},HTMLInputElement:class{},HTMLButtonElement:class{}};
   vm.createContext(sandbox);
   const source=fs.readFileSync(require('node:path').join(__dirname,'../game.js'),'utf8');
-  vm.runInContext(source.replace('reset();requestAnimationFrame(frame);',`reset();globalThis.api={tick,protectionOpacity,bodiesOverlap,setup:(protection,npcProtection,body)=>{
-    state='playing';username='Lily';score=100;caught=2;snake=startingBody();spawnProtection=protection;berries=[];
-    rivals=[{body,protection:npcProtection,angle:0,target:0,wander:100,dir:{x:1,y:0},color:'#aaa'}];
-  },clear:()=>{rivals=[];},get:()=>({score,caught,spawnProtection,snake,rivals})};`),sandbox);
+  vm.runInContext(source.replace('reset();requestAnimationFrame(frame);',`reset();globalThis.api={tick,protectionOpacity,bodiesOverlap,growthThreshold,sizeScale,trailPoint,dropSnake,setup:(protection,npcProtection,body)=>{
+    state='playing';username='Lily';score=100;caught=2;snake=startingBody();snakeTrail=makeTrail(snake);snakeGrowth=makeGrowth();spawnProtection=protection;berries=[];
+    rivals=[{body,trail:makeTrail(body),growth:makeGrowth(),score:100,protection:npcProtection,angle:0,target:0,wander:100,dir:{x:1,y:0},color:'#aaa'}];
+  },clear:()=>{rivals=[];},get:()=>({score,caught,spawnProtection,snake,rivals,berries})};`),sandbox);
   return sandbox.api;
 }
 const crossingPlayerHead=()=>[{x:14.5,y:8.8},{x:14.5,y:9.5}];
@@ -44,3 +44,7 @@ test('body overlap respects wrapping at the garden edges',()=>{
   assert(g.bodiesOverlap([{x:29.8,y:10}],[{x:.1,y:10}]));
   assert(!g.bodiesOverlap([{x:15,y:10}],[{x:1,y:10}]));
 });
+test('growth threshold increases only after each score size tier',()=>{const g=game();assert.equal(g.growthThreshold(0),50);assert.equal(g.growthThreshold(999),50);assert(Math.abs(g.growthThreshold(1000)-55)<1e-9);assert(Math.abs(g.growthThreshold(2000)-60.5)<1e-9);});
+test('snake scale increases at configurable score tiers',()=>{const g=game();assert.equal(g.sizeScale(999),1);assert.equal(g.sizeScale(1000),1.04);});
+test('a dead snake drops one equal-value circle per segment',()=>{const g=game();g.setup(0,0,crossingPlayerHead());g.dropSnake(g.get().snake,100);const drops=g.get().berries;assert.equal(drops.length,5);assert(drops.every(drop=>drop.dropped&&drop.points===20));});
+test('trail sampling follows the recorded route',()=>{const g=game();const point=g.trailPoint([{x:10,y:10},{x:10,y:11},{x:11,y:11}],.5);assert.equal(point.x,10);assert.equal(point.y,10.5);});

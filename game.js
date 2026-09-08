@@ -2,11 +2,18 @@
 'use strict';
 const canvas = document.getElementById('game'), ctx = canvas.getContext('2d');
 const overlay = document.getElementById('overlay'), bubble = document.getElementById('bubble');
+const GAME_CONFIG = Object.assign({
+  pointsPerSizeTier: 1000,
+  sizeTierScale: .04,
+  startingGrowthThreshold: 50,
+  growthThresholdMultiplier: 1.1,
+  headCollisionBuffer: .04
+}, window.PETAL_CONFIG || {});
 let username = '';
 const nameInput = document.getElementById('username');
 const nameError = document.getElementById('name-error');
 const cols = 30, rows = 20, colors = ['#b8aad6', '#9dc7b3', '#e3c087'];
-let snake, rivals, berries, dir, score, caught, state = 'ready', last = 0, particles = [], bubbleTimer, best = 0, sound = false, audio;
+let snake, snakeTrail, snakeGrowth, rivals, berries, dir, score, caught, state = 'ready', last = 0, particles = [], bubbleTimer, best = 0, sound = false, audio;
 let highScores = [];
 try {
   const saved=JSON.parse(localStorage.getItem('petal-highscores') || '[]');
@@ -40,8 +47,22 @@ let spawnProtection = 0;
 // Stay visibly translucent while waiting for an overlap to clear.
 const protectionOpacity = remaining => remaining <= 0 ? 1 : Math.min(.9, .3 + .7 * (1 - Math.min(1, remaining / PROTECTION_SECONDS)));
 const bodiesOverlap = (a, b) => a.some(p => b.some(q => distance(p,q) < .86));
-const hitsBody = (head, body) => body.slice(1).some(p => distance(head,p) < .75);
+const hitsBody = (head, body, scale = 1) => body.slice(1).some(p => distance(head,p) < (.86 + GAME_CONFIG.headCollisionBuffer) * scale);
 const startingBody = () => Array.from({length:5}, (_, i) => ({x:cols/2-.5-i*SPACING,y:rows/2-.5}));
+const makeTrail = body => {
+  const head = body[0];
+  return body.map(point => ({x:head.x + difference(head.x, point.x, cols), y:head.y + difference(head.y, point.y, rows)}));
+};
+const growthThreshold = points => GAME_CONFIG.startingGrowthThreshold * Math.pow(GAME_CONFIG.growthThresholdMultiplier, Math.floor(points / GAME_CONFIG.pointsPerSizeTier));
+const makeGrowth = () => ({pointsSinceGrowth:0});
+function addGrowth(entity, body, points, totalScore) {
+  entity.growth.pointsSinceGrowth += points;
+  while(entity.growth.pointsSinceGrowth >= growthThreshold(totalScore)) {
+    entity.growth.pointsSinceGrowth -= growthThreshold(totalScore);
+    body.push({...body[body.length-1]});
+  }
+}
+const sizeScale = points => 1 + Math.floor(points / GAME_CONFIG.pointsPerSizeTier) * GAME_CONFIG.sizeTierScale;
 let accumulator = 0, angle = 0, targetAngle = 0, pointerTarget = null;
 const heldKeys = new Set();
 const wrap = (value, size) => ((value % size) + size) % size;
@@ -51,13 +72,25 @@ function rotateToward(current, target, limit) {
   const delta = Math.atan2(Math.sin(target-current), Math.cos(target-current));
   return current + Math.max(-limit, Math.min(limit, delta));
 }
-function moveBody(body, heading, speed, dt) {
-  body[0] = {x:wrap(body[0].x+Math.cos(heading)*speed*dt,cols),y:wrap(body[0].y+Math.sin(heading)*speed*dt,rows)};
-  for(let i=1;i<body.length;i++) {
-    const p=body[i], ahead=body[i-1];
-    const dx=difference(p.x,ahead.x,cols),dy=difference(p.y,ahead.y,rows),gap=Math.hypot(dx,dy);
-    if(gap>SPACING) { const amount=(gap-SPACING)/gap; p.x=wrap(p.x+dx*amount,cols);p.y=wrap(p.y+dy*amount,rows); }
+function trailPoint(trail, distanceBack) {
+  let travelled=0;
+  for(let i=0;i<trail.length-1;i++) {
+    const current=trail[i], older=trail[i+1], dx=older.x-current.x, dy=older.y-current.y, segment=Math.hypot(dx,dy);
+    if(travelled+segment>=distanceBack && segment>0) {
+      const amount=(distanceBack-travelled)/segment;
+      return {x:wrap(current.x+dx*amount,cols),y:wrap(current.y+dy*amount,rows)};
+    }
+    travelled+=segment;
   }
+  const lastPoint=trail[trail.length-1];
+  return {x:wrap(lastPoint.x,cols),y:wrap(lastPoint.y,rows)};
+}
+function moveBody(body, heading, speed, dt, trail) {
+  const previous=trail[0];
+  trail.unshift({x:previous.x+Math.cos(heading)*speed*dt,y:previous.y+Math.sin(heading)*speed*dt});
+  while(trail.length>body.length*20+20) trail.pop();
+  body[0]=trailPoint(trail,0);
+  for(let i=1;i<body.length;i++) body[i]=trailPoint(trail,i*SPACING);
 }
 const randomCell = () => ({x:Math.floor(Math.random()*cols), y:Math.floor(Math.random()*rows)});
 const same = (a,b) => distance(a,b) < .85;
@@ -69,11 +102,11 @@ function makeRival(i) {
     const direction = {x:Math.cos(heading),y:Math.sin(heading)};
     const body = Array.from({length}, (_, j) => ({x:wrap(head.x-direction.x*j*SPACING,cols),y:wrap(head.y-direction.y*j*SPACING,rows)}));
     if (body.some(p => snake.some(s=>same(s,p)) || rivals.some(r=>r.body.some(s=>same(s,p))) || berries.some(b=>same(b,p)))) continue;
-    rivals.push({body, protection:PROTECTION_SECONDS, angle:heading, target:heading, wander:0, dir:direction, color:colors[i%3]});
+    rivals.push({body, trail:makeTrail(body), growth:makeGrowth(), score:length * 10, protection:PROTECTION_SECONDS, angle:heading, target:heading, wander:0, dir:direction, color:colors[i%3]});
     return;
   }
 }
-function reset(){snake=startingBody();spawnProtection=PROTECTION_SECONDS;rivals=[];berries=[];dir={x:1,y:0};score=0;caught=0;particles=[];accumulator=0;angle=0;targetAngle=0;pointerTarget=null;heldKeys.clear();for(let i=0;i<3;i++)makeRival(i);for(let i=0;i<13;i++){const p=freeCell();if(p)berries.push(p);}updateScore();bubble.classList.remove('show');clearTimeout(bubbleTimer);}
+function reset(){snake=startingBody();snakeTrail=makeTrail(snake);snakeGrowth=makeGrowth();spawnProtection=PROTECTION_SECONDS;rivals=[];berries=[];dir={x:1,y:0};score=0;caught=0;particles=[];accumulator=0;angle=0;targetAngle=0;pointerTarget=null;heldKeys.clear();for(let i=0;i<3;i++)makeRival(i);for(let i=0;i<13;i++){const p=freeCell();if(p)berries.push({x:p.x,y:p.y,points:10});}updateScore();bubble.classList.remove('show');clearTimeout(bubbleTimer);}
 function updateScore(){
   document.getElementById('score').textContent=String(score).padStart(3,'0');
   document.getElementById('caught').textContent=caught;
@@ -116,12 +149,24 @@ function respawnPlayer() {
   updateScore();
   score=0;caught=0;updateScore();
   snake=startingBody();
+  snakeTrail=makeTrail(snake);snakeGrowth=makeGrowth();
   angle=0;targetAngle=0;dir={x:1,y:0};pointerTarget=null;heldKeys.clear();
   spawnProtection=PROTECTION_SECONDS;
   particles=[];clearTimeout(bubbleTimer);
   bubble.textContent='A fresh little start ♡';
   cheerPosition={...snake[0]};positionCheer();bubble.classList.add('show');
   bubbleTimer=setTimeout(()=>bubble.classList.remove('show'),2000);
+}
+function dropSnake(body, totalScore) {
+  const points=Math.max(1,Math.floor(totalScore/body.length));
+  body.forEach(point=>berries.push({x:point.x,y:point.y,points,dropped:true}));
+}
+function collectFood(head, onPoints) {
+  const index=berries.findIndex(berry=>distance(head,berry)<.62);
+  if(index<0)return false;
+  const berry=berries.splice(index,1)[0];
+  onPoints(berry.points);
+  return true;
 }
 function tick() {
   const dt=STEP/1000;
@@ -132,14 +177,15 @@ function tick() {
   }
   angle=rotateToward(angle,targetAngle,TURN_SPEED*dt);
   dir={x:Math.cos(angle),y:Math.sin(angle)};
-  moveBody(snake,angle,SPEED,dt);
+  moveBody(snake,angle,SPEED,dt,snakeTrail);
   const head=snake[0];
   rivals.forEach(r=>{
     r.wander-=dt;
     if(r.wander<=0){r.target=r.angle+(Math.random()-.5)*2.4;r.wander=.6+Math.random()*1.5;}
     r.angle=rotateToward(r.angle,r.target,2*dt);
     r.dir={x:Math.cos(r.angle),y:Math.sin(r.angle)};
-    moveBody(r.body,r.angle,2.6,dt);
+    moveBody(r.body,r.angle,2.6,dt,r.trail);
+    if(r.protection===0) collectFood(r.body[0], points=>{r.score+=points;addGrowth(r.growth,r.body,points,r.score);});
   });
   // Do not become solid inside another snake when a timer expires.
   const participants=[{body:snake,protection:spawnProtection},...rivals];
@@ -155,34 +201,30 @@ function tick() {
   rivals.forEach((r,i)=>{r.protection=nextProtection[i+1];});
   // A protected snake can neither cause nor receive collision damage.
   const playerSolid=spawnProtection===0;
-  const playerHit=playerSolid && rivals.some(r=>r.protection===0 && hitsBody(head,r.body));
+  const playerHit=playerSolid && rivals.some(r=>r.protection===0 && hitsBody(head,r.body,sizeScale(score)));
   const deaths=rivals.filter(r=>r.protection===0 && (
-    (playerSolid && hitsBody(r.body[0],snake)) ||
-    rivals.some(other=>other!==r && other.protection===0 && hitsBody(r.body[0],other.body))));
-  if(playerHit){respawnPlayer();return;}
-  const captures=deaths.filter(r=>playerSolid && hitsBody(r.body[0],snake));
+    (playerSolid && hitsBody(r.body[0],snake,sizeScale(r.score))) ||
+    rivals.some(other=>other!==r && other.protection===0 && hitsBody(r.body[0],other.body,sizeScale(r.score)))));
+  if(playerHit){dropSnake(snake,score);respawnPlayer();return;}
+  const playerKills=deaths.filter(r=>playerSolid && hitsBody(r.body[0],snake,sizeScale(r.score))).length;
+  deaths.forEach(r=>dropSnake(r.body,r.score));
   rivals=rivals.filter(r=>!deaths.includes(r));
-  if(captures.length){
-    score+=50*captures.length;caught+=captures.length;
-    for(const r of captures)snake.push({...snake[snake.length-1]});
-    cheer(captures[0].body[0]);
-  }
-  const berryIndex=berries.findIndex(b=>distance(head,b)<.62);
-  if(berryIndex>=0){
-    snake.push({...snake[snake.length-1]});berries.splice(berryIndex,1);score+=10;
-    const p=freeCell();if(p)berries.push(p);
-  }
+  caught+=playerKills;
+  if(deaths.length) cheer(deaths[0].body[0]);
+  let berryCollected=false;
+  if(spawnProtection===0) berryCollected=collectFood(head,points=>{score+=points;addGrowth(snakeGrowth,snake,points,score);});
+  if(berryCollected){const p=freeCell();if(p)berries.push({x:p.x,y:p.y,points:10});}
   for(let i=rivals.length;i<3;i++)makeRival(i);
-  if(captures.length||berryIndex>=0)updateScore();
+  if(deaths.length||berryCollected)updateScore();
 }
 function draw(delta = 0){const rect=canvas.getBoundingClientRect(),dpr=window.devicePixelRatio||1;if(canvas.width!==Math.round(rect.width*dpr)||canvas.height!==Math.round(rect.height*dpr)){canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);}ctx.setTransform(dpr,0,0,dpr,0,0);const w=rect.width,h=rect.height,cw=w/cols,ch=h/rows;ctx.clearRect(0,0,w,h);ctx.fillStyle='#dce3d1';for(let x=0;x<cols;x++)for(let y=0;y<rows;y++){ctx.beginPath();ctx.arc((x+.5)*cw,(y+.5)*ch,.8,0,Math.PI*2);ctx.fill();}
 function oval(x,y,rx,ry,color){ctx.fillStyle=color;ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.fill();}
 [[3,3],[26,16],[4,17],[25,3],[18,5]].forEach(([x,y],i)=>{for(let j=0;j<5;j++){const a=j*Math.PI*2/5;oval((x+.5)*cw+Math.cos(a)*4,(y+.5)*ch+Math.sin(a)*4,3,3,i%2?'#e0dbeb':'#eadbdd');}oval((x+.5)*cw,(y+.5)*ch,2,2,'#e4c893');});
-berries.forEach(b=>{oval((b.x+.5)*cw,(b.y+.56)*ch,cw*.19,ch*.23,'#d795a3');oval((b.x+.59)*cw,(b.y+.3)*ch,cw*.13,ch*.07,'#a1b58b');oval((b.x+.45)*cw,(b.y+.48)*ch,cw*.045,ch*.05,'#fae3e8');});
-function drawSnake(body,color,d){body.slice().reverse().forEach((p,i)=>{oval((p.x+.5)*cw,(p.y+.5)*ch,cw*.43,ch*.43,color);if(i<body.length-1)oval((p.x+.42)*cw,(p.y+.37)*ch,cw*.10,ch*.07,'#ffffff35');});const p=body[0],x=(p.x+.5)*cw,y=(p.y+.5)*ch;[-1,1].forEach(s=>{const ex=x+d.x*cw*.17-d.y*s*cw*.17,ey=y+d.y*ch*.17+d.x*s*ch*.17;oval(ex,ey,cw*.09,ch*.10,'#fffaf8');oval(ex+d.x,ey+d.y,cw*.042,ch*.05,'#555447');});}
+berries.forEach(b=>{if(b.dropped){oval((b.x+.5)*cw,(b.y+.5)*ch,cw*.28,ch*.28,'#d5ad70');oval((b.x+.42)*cw,(b.y+.4)*ch,cw*.07,ch*.07,'#fff4d4');}else{oval((b.x+.5)*cw,(b.y+.56)*ch,cw*.19,ch*.23,'#d795a3');oval((b.x+.59)*cw,(b.y+.3)*ch,cw*.13,ch*.07,'#a1b58b');oval((b.x+.45)*cw,(b.y+.48)*ch,cw*.045,ch*.05,'#fae3e8');}});
+function drawSnake(body,color,d,scale=1){body.slice().reverse().forEach((p,i)=>{oval((p.x+.5)*cw,(p.y+.5)*ch,cw*.43*scale,ch*.43*scale,color);if(i<body.length-1)oval((p.x+.42)*cw,(p.y+.37)*ch,cw*.10*scale,ch*.07*scale,'#ffffff35');});const p=body[0],x=(p.x+.5)*cw,y=(p.y+.5)*ch;[-1,1].forEach(s=>{const ex=x+d.x*cw*.17*scale-d.y*s*cw*.17*scale,ey=y+d.y*ch*.17*scale+d.x*s*ch*.17*scale;oval(ex,ey,cw*.09*scale,ch*.10*scale,'#fffaf8');oval(ex+d.x,ey+d.y,cw*.042*scale,ch*.05*scale,'#555447');});}
 // Neighboring copies let segments slide through the garden edges.
-function wrappedSnake(body,color,d){for(const ox of [-cols,0,cols])for(const oy of [-rows,0,rows])drawSnake(body.map(p=>({x:p.x+ox,y:p.y+oy})),color,d);}
-rivals.forEach(r=>{ctx.globalAlpha=protectionOpacity(r.protection);wrappedSnake(r.body,r.color,r.dir);});ctx.globalAlpha=protectionOpacity(spawnProtection);wrappedSnake(snake,'#dfa0b5',dir);ctx.globalAlpha=1;
+function wrappedSnake(body,color,d,scale){for(const ox of [-cols,0,cols])for(const oy of [-rows,0,rows])drawSnake(body.map(p=>({x:p.x+ox,y:p.y+oy})),color,d,scale);}
+rivals.forEach(r=>{ctx.globalAlpha=protectionOpacity(r.protection);wrappedSnake(r.body,r.color,r.dir,sizeScale(r.score));});ctx.globalAlpha=protectionOpacity(spawnProtection);wrappedSnake(snake,'#dfa0b5',dir,sizeScale(score));ctx.globalAlpha=1;
 if(username){
   ctx.font='600 12px "DM Sans", sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
   const labelWidth=Math.min(w-16,ctx.measureText(username).width+20);

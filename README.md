@@ -52,9 +52,10 @@ Your snake moves automatically and curves toward the chosen direction. Mouse and
 ## How to play
 
 1. Start with the pink snake in the garden.
-2. Collect berries to earn **10 points** and grow by one segment.
-3. Draw an NPC into your snake’s body to earn **50 points**, grow by one segment, and trigger a cheering bubble. Defeated NPCs respawn with random lengths when space is available.
-4. Keep your head clear of every NPC body. After a collision, you automatically respawn in the center of the garden with **5 segments**, keeping your username but resetting your score and catch count to zero. Every newly spawned snake gradually fades from partially translucent to opaque over **3 seconds of protection**. Protected snakes cannot cause or receive collision damage, and self-collision is never lethal. If any body segments are still overlapping when protection expires, the snake stays visibly translucent and protected until the bodies fully separate, preventing an immediate collision death. NPCs die when their heads hit your body or another NPC’s body.
+2. Collect berries to earn **10 points** and grow when your current score-based segment threshold is reached.
+3. Guide your head into an NPC’s body to defeat it. The NPC drops one collectible circle per body segment; the dropped value is its hidden score divided equally across those circles. Collecting a circle awards its points and contributes toward segment growth. Defeated NPCs respawn with random lengths when space is available.
+4. Keep your head clear of every NPC body. After a collision, you automatically respawn in the center of the garden with **5 segments**, keeping your username but resetting your score and catch count to zero. Your pre-death score is distributed among the dropped circles. Every newly spawned snake gradually fades from partially translucent to opaque over **3 seconds of protection**. Protected snakes cannot cause or receive collision damage, cannot collect food, and self-collision is never lethal. If any body segments are still overlapping when protection expires, the snake stays visibly translucent and protected until the bodies fully separate. NPCs die when their heads hit your body or another NPC’s body, then drop their own circles.
+5. Every **1000 points**, the whole snake enlarges slightly. The segment-growth threshold starts at **50 points** and increases by the configured multiplier at each enlargement tier.
 5. Keep growing and try to beat your personal best.
 
 Body collisions trigger death regardless of snake length; the player automatically respawns. NPC-to-NPC collisions do not award player points. Crossing a garden edge wraps you around to the opposite side.
@@ -67,6 +68,7 @@ High scores are stored in this browser, rather than synced between devices. Ente
 snake_game/
 ├── index.html   # Page layout, game board, score panel, and controls
 ├── style.css    # Pastel theme, responsive layout, and bubble styling
+├── config.js    # Adjustable score tiers, growth, enlargement, and collision settings
 ├── game.js      # Movement, NPCs, collisions, scoring, sound, and rendering
 └── README.md    # Setup and gameplay guide
 ```
@@ -77,8 +79,9 @@ The garden is drawn with the Canvas 2D API. Celebration sounds use the Web Audio
 
 - **Colors and layout:** edit `style.css`; snake and berry colors are also defined in `game.js`.
 - **Movement:** adjust `SPEED`, `TURN_SPEED`, and `SPACING` near the top of `game.js`.
+- **Growth and collisions:** adjust `config.js` to change enlargement tiers, body scale, segment thresholds, threshold multiplier, and head collision forgiveness.
 - **NPC lengths:** change the random length calculation in `makeRival()`.
 - **Cheering messages:** edit the `words` array in `cheer()`.
-- **Scoring:** change the berry and NPC point values in `tick()`.
+- **Scoring:** change the berry value when new berries are created in `reset()` and `tick()`.
 
 Refresh the browser after saving changes. If an older version still appears, use a hard refresh.
