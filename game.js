@@ -136,7 +136,7 @@ function positionCheer() {
   bubble.style.top = top + 'px';
 }
 window.addEventListener('resize', positionCheer);
-function cheer(p){const words=['You grow, girl! ✨','A little snack, a big slay ♡','Look at you bloom! ✿','Main character moment ✧','Sweet catch, sunshine! ♡','You’re doing berry well! ✨'];bubble.textContent=words[Math.floor(Math.random()*words.length)];cheerPosition={...p};positionCheer();bubble.classList.add('show');clearTimeout(bubbleTimer);bubbleTimer=setTimeout(()=>bubble.classList.remove('show'),2100);for(let i=0;i<22;i++)particles.push({x:p.x+.5,y:p.y+.5,vx:(Math.random()-.5)*.14,vy:(Math.random()-.7)*.14,life:1,color:['#dda3b6','#acbda0','#b9a2cf','#ebc47f'][i%4]});tone();}
+function cheer(p){for(let i=0;i<22;i++)particles.push({x:p.x+.5,y:p.y+.5,vx:(Math.random()-.5)*.14,vy:(Math.random()-.7)*.14,life:1,color:['#dda3b6','#acbda0','#b9a2cf','#ebc47f'][i%4]});tone();}
 function start(){
   if(!username){
     const value=nameInput.value.trim().slice(0,20);
@@ -153,10 +153,7 @@ function respawnPlayer() {
   snakeTrail=makeTrail(snake);snakeGrowth=makeGrowth();
   angle=0;targetAngle=0;dir={x:1,y:0};pointerTarget=null;heldKeys.clear();
   spawnProtection=PROTECTION_SECONDS;
-  particles=[];clearTimeout(bubbleTimer);
-  bubble.textContent='A fresh little start ♡';
-  cheerPosition={...snake[0]};positionCheer();bubble.classList.add('show');
-  bubbleTimer=setTimeout(()=>bubble.classList.remove('show'),2000);
+  particles=[];clearTimeout(bubbleTimer);bubble.classList.remove('show');
 }
 function dropSnake(body, totalScore) {
   const points=Math.max(1,Math.floor(totalScore/body.length));
