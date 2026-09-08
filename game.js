@@ -56,9 +56,9 @@ const makeTrail = body => {
 const growthThreshold = points => GAME_CONFIG.startingGrowthThreshold * Math.pow(GAME_CONFIG.growthThresholdMultiplier, Math.floor(points / GAME_CONFIG.pointsPerSizeTier));
 const makeGrowth = () => ({pointsSinceGrowth:0});
 function addGrowth(entity, body, points, totalScore) {
-  entity.growth.pointsSinceGrowth += points;
-  while(entity.growth.pointsSinceGrowth >= growthThreshold(totalScore)) {
-    entity.growth.pointsSinceGrowth -= growthThreshold(totalScore);
+  entity.pointsSinceGrowth += points;
+  while(entity.pointsSinceGrowth >= growthThreshold(totalScore)) {
+    entity.pointsSinceGrowth -= growthThreshold(totalScore);
     body.push({...body[body.length-1]});
   }
 }
