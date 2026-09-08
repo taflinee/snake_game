@@ -26,12 +26,12 @@ Open `index.html` in a modern web browser, enter a username (up to 20 characters
 With Python 3 installed, open a terminal in the project folder and run:
 
 ```bash
-python3 -m http.server 8000
+python3 -m http.server 8000 --bind 127.0.0.1
 ```
 
 Visit **http://localhost:8000** in your browser. Press **Ctrl+C** in the terminal to stop the server.
 
-On Windows, you can use `py -m http.server 8000` if `python3` is unavailable.
+On Windows, you can use `py -m http.server 8000 --bind 127.0.0.1` if `python3` is unavailable. Binding to `127.0.0.1` keeps the server accessible only from the same computer.
 
 The game runs entirely in your browser. Google Fonts supplies the page fonts when an internet connection is available; system fonts are used otherwise.
 

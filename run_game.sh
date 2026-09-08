@@ -15,4 +15,4 @@ if command -v xdg-open >/dev/null 2>&1; then
 fi
 
 printf 'Petal is running at %s\nPress Ctrl+C to stop.\n' "$URL"
-python3 -m http.server "$PORT"
+python3 -m http.server "$PORT" --bind 127.0.0.1

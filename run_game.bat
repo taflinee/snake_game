@@ -29,5 +29,5 @@ if not errorlevel 1 (
 start "" "http://localhost:%PORT%/index.html"
 echo Petal is running at http://localhost:%PORT%/index.html
 echo Close this window or press Ctrl+C to stop the server.
-"%PYTHON%" -m http.server %PORT%
+"%PYTHON%" -m http.server %PORT% --bind 127.0.0.1
 pause
