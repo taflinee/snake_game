@@ -8,7 +8,7 @@ function game(){
   const sandbox={document:{getElementById:id=>elements[id]||(elements[id]=element()),createElement:element,querySelectorAll:()=>[],addEventListener(){}},window:{addEventListener(){}},localStorage:{getItem:()=>null,setItem(){}},performance:{now:()=>0},requestAnimationFrame(){},setTimeout(){},clearTimeout(){},HTMLInputElement:class{},HTMLButtonElement:class{}};
   vm.createContext(sandbox);
   const source=fs.readFileSync(require('node:path').join(__dirname,'../game.js'),'utf8');
-  vm.runInContext(source.replace('reset();requestAnimationFrame(frame);',`reset();globalThis.api={tick,protectionOpacity,bodiesOverlap,growthThreshold,sizeScale,trailPoint,dropSnake,setup:(protection,npcProtection,body,initialScore=100,initialGrowth=0)=>{
+  vm.runInContext(source.replace('reset();requestAnimationFrame(frame);',`reset();globalThis.api={tick,protectionOpacity,bodiesOverlap,hitsBody,collectFood,growthThreshold,sizeScale,trailPoint,dropSnake,setup:(protection,npcProtection,body,initialScore=100,initialGrowth=0)=>{
     state='playing';username='Lily';score=initialScore;caught=2;snake=startingBody();snakeTrail=makeTrail(snake);snakeGrowth=makeGrowth();snakeGrowth.pointsSinceGrowth=initialGrowth;spawnProtection=protection;berries=[];
     rivals=[{body,trail:makeTrail(body),growth:makeGrowth(),score:100,protection:npcProtection,angle:0,target:0,wander:100,dir:{x:1,y:0},color:'#aaa'}];
   },clear:()=>{rivals=[];},get:()=>({score,caught,spawnProtection,snake,rivals,berries})};`),sandbox);
@@ -49,3 +49,5 @@ test('snake scale increases at configurable score tiers',()=>{const g=game();ass
 test('a dead snake drops one equal-value circle per segment',()=>{const g=game();g.setup(0,0,crossingPlayerHead());g.dropSnake(g.get().snake,100);const drops=g.get().berries;assert.equal(drops.length,5);assert(drops.every(drop=>drop.dropped&&drop.points===20));});
 test('trail sampling follows the recorded route',()=>{const g=game();const point=g.trailPoint([{x:10,y:10},{x:10,y:11},{x:11,y:11}],.5);assert.equal(point.x,10);assert.equal(point.y,10.5);});
 test('collecting a berry at the growth threshold keeps the game moving',()=>{const g=game();g.setup(0,0,crossingPlayerHead(),40,40);g.clear();g.get().berries.push({x:14.5,y:9.5,points:10});g.tick();assert.equal(g.get().score,50);assert.equal(g.get().snake.length,6);g.tick();assert.equal(g.get().snake.length,6);});
+test('head collision response includes a small visual tolerance',()=>{const g=game();assert(g.hitsBody({x:10,y:10},[{x:10,y:12},{x:10,y:10.95}]));});
+test('berry pickup response includes the full berry edge',()=>{const g=game();let points=0;const berries=g.get().berries;berries.push({x:10,y:10.7,points:10});assert(g.collectFood({x:10,y:10},value=>{points=value;}));assert.equal(points,10);});

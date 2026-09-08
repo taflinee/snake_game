@@ -7,7 +7,8 @@ const GAME_CONFIG = Object.assign({
   sizeTierScale: .04,
   startingGrowthThreshold: 50,
   growthThresholdMultiplier: 1.1,
-  headCollisionBuffer: .04
+  headCollisionBuffer: .12,
+  berryPickupRadius: .75
 }, window.PETAL_CONFIG || {});
 let username = '';
 const nameInput = document.getElementById('username');
@@ -162,7 +163,7 @@ function dropSnake(body, totalScore) {
   body.forEach(point=>berries.push({x:point.x,y:point.y,points,dropped:true}));
 }
 function collectFood(head, onPoints) {
-  const index=berries.findIndex(berry=>distance(head,berry)<.62);
+  const index=berries.findIndex(berry=>distance(head,berry)<GAME_CONFIG.berryPickupRadius);
   if(index<0)return false;
   const berry=berries.splice(index,1)[0];
   onPoints(berry.points);
