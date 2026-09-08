@@ -39,6 +39,8 @@ The game runs entirely in your browser. Google Fonts supplies the page fonts whe
 
 From this folder, run `./run_game.sh`. It starts the local server and opens the game at `http://localhost:8000/index.html`. Keep that terminal open while playing and press `Ctrl+C` when you are finished. To use another port, run `PORT=8001 ./run_game.sh`.
 
+For double-click launching on Linux, double-click `Petal Snake Game.desktop`. If the file manager asks, choose **Trust and Launch** or **Allow Launching** once. The launcher opens a terminal for the local server and opens the game in your browser.
+
 ## Controls
 
 | Input | Action |

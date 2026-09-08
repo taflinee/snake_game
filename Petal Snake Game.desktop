@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Petal Snake Game
+Comment=Launch the Petal snake game
+Exec=/home/tafff/snake_game/run_game.sh
+Path=/home/tafff/snake_game
+Terminal=true
+Categories=Game;
