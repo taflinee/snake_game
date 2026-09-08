@@ -41,6 +41,8 @@ From this folder, run `./run_game.sh`. It starts the local server and opens the 
 
 For double-click launching on Linux, open this folder in the system file manager, right-click `Petal Snake Game.desktop`, choose **Properties**, enable **Allow Executing as Program** if available, then choose **Allow Launching** or **Trust and Launch**. Double-clicking the file inside VS Code will open it as text instead of launching it. The launcher opens a terminal for the local server and opens the game in your browser.
 
+On Windows, double-click `run_game.bat`. It opens the game in your browser, automatically uses the next available port, and keeps a command window open for the server. Press `Ctrl+C` to stop it.
+
 ## Controls
 
 | Input | Action |
