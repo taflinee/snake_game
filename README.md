@@ -35,6 +35,10 @@ On Windows, you can use `py -m http.server 8000` if `python3` is unavailable.
 
 The game runs entirely in your browser. Google Fonts supplies the page fonts when an internet connection is available; system fonts are used otherwise.
 
+## Run the game
+
+From this folder, run `./run_game.sh`. It starts the local server and opens the game at `http://localhost:8000/index.html`. Keep that terminal open while playing and press `Ctrl+C` when you are finished. To use another port, run `PORT=8001 ./run_game.sh`.
+
 ## Controls
 
 | Input | Action |
