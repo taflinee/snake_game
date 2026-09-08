@@ -35,7 +35,12 @@ function renderHighScores(){
   });
 }
 const STEP = 1000 / 120, SPEED = 6.5, TURN_SPEED = 4.5, SPACING = .78;
+const PROTECTION_SECONDS = 3;
 let spawnProtection = 0;
+// Stay visibly translucent while waiting for an overlap to clear.
+const protectionOpacity = remaining => remaining <= 0 ? 1 : Math.min(.9, .3 + .7 * (1 - Math.min(1, remaining / PROTECTION_SECONDS)));
+const bodiesOverlap = (a, b) => a.some(p => b.some(q => distance(p,q) < .86));
+const hitsBody = (head, body) => body.slice(1).some(p => distance(head,p) < .75);
 const startingBody = () => Array.from({length:5}, (_, i) => ({x:cols/2-.5-i*SPACING,y:rows/2-.5}));
 let accumulator = 0, angle = 0, targetAngle = 0, pointerTarget = null;
 const heldKeys = new Set();
@@ -64,11 +69,11 @@ function makeRival(i) {
     const direction = {x:Math.cos(heading),y:Math.sin(heading)};
     const body = Array.from({length}, (_, j) => ({x:wrap(head.x-direction.x*j*SPACING,cols),y:wrap(head.y-direction.y*j*SPACING,rows)}));
     if (body.some(p => snake.some(s=>same(s,p)) || rivals.some(r=>r.body.some(s=>same(s,p))) || berries.some(b=>same(b,p)))) continue;
-    rivals.push({body, angle:heading, target:heading, wander:0, dir:direction, color:colors[i%3]});
+    rivals.push({body, protection:PROTECTION_SECONDS, angle:heading, target:heading, wander:0, dir:direction, color:colors[i%3]});
     return;
   }
 }
-function reset(){snake=startingBody();spawnProtection=0;rivals=[];berries=[];dir={x:1,y:0};score=0;caught=0;particles=[];accumulator=0;angle=0;targetAngle=0;pointerTarget=null;heldKeys.clear();for(let i=0;i<3;i++)makeRival(i);for(let i=0;i<13;i++){const p=freeCell();if(p)berries.push(p);}updateScore();bubble.classList.remove('show');clearTimeout(bubbleTimer);}
+function reset(){snake=startingBody();spawnProtection=PROTECTION_SECONDS;rivals=[];berries=[];dir={x:1,y:0};score=0;caught=0;particles=[];accumulator=0;angle=0;targetAngle=0;pointerTarget=null;heldKeys.clear();for(let i=0;i<3;i++)makeRival(i);for(let i=0;i<13;i++){const p=freeCell();if(p)berries.push(p);}updateScore();bubble.classList.remove('show');clearTimeout(bubbleTimer);}
 function updateScore(){
   document.getElementById('score').textContent=String(score).padStart(3,'0');
   document.getElementById('caught').textContent=caught;
@@ -112,7 +117,7 @@ function respawnPlayer() {
   score=0;caught=0;updateScore();
   snake=startingBody();
   angle=0;targetAngle=0;dir={x:1,y:0};pointerTarget=null;heldKeys.clear();
-  spawnProtection=2;
+  spawnProtection=PROTECTION_SECONDS;
   particles=[];clearTimeout(bubbleTimer);
   bubble.textContent='A fresh little start ♡';
   cheerPosition={...snake[0]};positionCheer();bubble.classList.add('show');
@@ -120,7 +125,6 @@ function respawnPlayer() {
 }
 function tick() {
   const dt=STEP/1000;
-  spawnProtection=Math.max(0,spawnProtection-dt);
   if(pointerTarget) {
     // Aim toward the visible pointer; wrapping still happens at the edges.
     const dx=pointerTarget.x-snake[0].x,dy=pointerTarget.y-snake[0].y;
@@ -130,9 +134,6 @@ function tick() {
   dir={x:Math.cos(angle),y:Math.sin(angle)};
   moveBody(snake,angle,SPEED,dt);
   const head=snake[0];
-  if(spawnProtection===0 && snake.slice(4).some(p=>distance(head,p)<.55)) {
-    respawnPlayer();return;
-  }
   rivals.forEach(r=>{
     r.wander-=dt;
     if(r.wander<=0){r.target=r.angle+(Math.random()-.5)*2.4;r.wander=.6+Math.random()*1.5;}
@@ -140,12 +141,26 @@ function tick() {
     r.dir={x:Math.cos(r.angle),y:Math.sin(r.angle)};
     moveBody(r.body,r.angle,2.6,dt);
   });
-  // Resolve all deaths from the same positions before removing any snakes.
-  const hitsBody=(h,body)=>body.slice(1).some(p=>distance(h,p)<.75);
-  const playerHit=spawnProtection===0 && rivals.some(r=>hitsBody(head,r.body));
-  const deaths=rivals.filter(r=>(spawnProtection===0 && hitsBody(r.body[0],snake)) || rivals.some(other=>other!==r && hitsBody(r.body[0],other.body)) || r.body.slice(4).some(p=>distance(r.body[0],p)<.55));
+  // Do not become solid inside another snake when a timer expires.
+  const participants=[{body:snake,protection:spawnProtection},...rivals];
+  const nextProtection=participants.map(entity=>{
+    if(entity.protection<=0)return 0;
+    const remaining=Math.max(0,entity.protection-dt);
+    if(remaining>0)return remaining;
+    const overlapping=participants.some(other=>other!==entity &&
+      bodiesOverlap(entity.body,other.body));
+    return overlapping ? dt : 0;
+  });
+  spawnProtection=nextProtection[0];
+  rivals.forEach((r,i)=>{r.protection=nextProtection[i+1];});
+  // A protected snake can neither cause nor receive collision damage.
+  const playerSolid=spawnProtection===0;
+  const playerHit=playerSolid && rivals.some(r=>r.protection===0 && hitsBody(head,r.body));
+  const deaths=rivals.filter(r=>r.protection===0 && (
+    (playerSolid && hitsBody(r.body[0],snake)) ||
+    rivals.some(other=>other!==r && other.protection===0 && hitsBody(r.body[0],other.body))));
   if(playerHit){respawnPlayer();return;}
-  const captures=deaths.filter(r=>spawnProtection===0 && hitsBody(r.body[0],snake));
+  const captures=deaths.filter(r=>playerSolid && hitsBody(r.body[0],snake));
   rivals=rivals.filter(r=>!deaths.includes(r));
   if(captures.length){
     score+=50*captures.length;caught+=captures.length;
@@ -167,7 +182,7 @@ berries.forEach(b=>{oval((b.x+.5)*cw,(b.y+.56)*ch,cw*.19,ch*.23,'#d795a3');oval(
 function drawSnake(body,color,d){body.slice().reverse().forEach((p,i)=>{oval((p.x+.5)*cw,(p.y+.5)*ch,cw*.43,ch*.43,color);if(i<body.length-1)oval((p.x+.42)*cw,(p.y+.37)*ch,cw*.10,ch*.07,'#ffffff35');});const p=body[0],x=(p.x+.5)*cw,y=(p.y+.5)*ch;[-1,1].forEach(s=>{const ex=x+d.x*cw*.17-d.y*s*cw*.17,ey=y+d.y*ch*.17+d.x*s*ch*.17;oval(ex,ey,cw*.09,ch*.10,'#fffaf8');oval(ex+d.x,ey+d.y,cw*.042,ch*.05,'#555447');});}
 // Neighboring copies let segments slide through the garden edges.
 function wrappedSnake(body,color,d){for(const ox of [-cols,0,cols])for(const oy of [-rows,0,rows])drawSnake(body.map(p=>({x:p.x+ox,y:p.y+oy})),color,d);}
-rivals.forEach(r=>wrappedSnake(r.body,r.color,r.dir));ctx.globalAlpha=spawnProtection>0?.55:1;wrappedSnake(snake,'#dfa0b5',dir);ctx.globalAlpha=1;
+rivals.forEach(r=>{ctx.globalAlpha=protectionOpacity(r.protection);wrappedSnake(r.body,r.color,r.dir);});ctx.globalAlpha=protectionOpacity(spawnProtection);wrappedSnake(snake,'#dfa0b5',dir);ctx.globalAlpha=1;
 if(username){
   ctx.font='600 12px "DM Sans", sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
   const labelWidth=Math.min(w-16,ctx.measureText(username).width+20);

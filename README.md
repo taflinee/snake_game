@@ -54,7 +54,7 @@ Your snake moves automatically and curves toward the chosen direction. Mouse and
 1. Start with the pink snake in the garden.
 2. Collect berries to earn **10 points** and grow by one segment.
 3. Draw an NPC into your snake’s body to earn **50 points**, grow by one segment, and trigger a cheering bubble. Defeated NPCs respawn with random lengths when space is available.
-4. Keep your head clear of your own body and every NPC body. After a collision, you automatically respawn in the center of the garden with **5 segments**, keeping your username but resetting your score and catch count to zero. Your snake appears translucent during **2 seconds of protection**; collisions between you and NPCs are disabled during this time. NPCs also die when their heads hit your body, another NPC’s body, or their own body.
+4. Keep your head clear of every NPC body. After a collision, you automatically respawn in the center of the garden with **5 segments**, keeping your username but resetting your score and catch count to zero. Every newly spawned snake gradually fades from partially translucent to opaque over **3 seconds of protection**. Protected snakes cannot cause or receive collision damage, and self-collision is never lethal. If any body segments are still overlapping when protection expires, the snake stays visibly translucent and protected until the bodies fully separate, preventing an immediate collision death. NPCs die when their heads hit your body or another NPC’s body.
 5. Keep growing and try to beat your personal best.
 
 Body collisions trigger death regardless of snake length; the player automatically respawns. NPC-to-NPC collisions do not award player points. Crossing a garden edge wraps you around to the opposite side.
